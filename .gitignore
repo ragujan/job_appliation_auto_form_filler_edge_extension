@@ -1,0 +1,13 @@
+# Personal profile data (never commit real info)
+details.json
+my-profile.json
+my-profile.csv
+
+# Local resumes
+*.pdf
+resume*.txt
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/

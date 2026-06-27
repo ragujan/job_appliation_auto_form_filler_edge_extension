@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JobFill AI</title>
+  <link rel="stylesheet" href="src/popup.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">JobFill <span class="ai">AI</span></span>
+      </div>
+      <div class="header-actions">
+        <button id="popOutBtn" class="btn-icon" title="Open in separate window">⧉</button>
+        <div id="status-dot" class="status-dot idle" title="Idle"></div>
+      </div>
+    </header>
+    <p id="panelHint" class="panel-hint">Stays open while you work on the page</p>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" data-tab="autofill">Auto-Fill</button>
+      <button class="tab" data-tab="resume">Resume</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- AUTO-FILL TAB -->
+    <div class="tab-content active" id="tab-autofill">
+      <div class="section">
+        <label class="toggle-row">
+          <span>Auto-fill on page load</span>
+          <label class="switch">
+            <input type="checkbox" id="autoFillToggle" />
+            <span class="slider"></span>
+          </label>
+        </label>
+      </div>
+
+      <div class="section">
+        <p class="section-label">Profile Data File</p>
+        <div class="file-row">
+          <span id="profileFileName" class="file-name muted">No file loaded</span>
+          <button id="loadProfileBtn" class="btn-secondary">Load CSV/JSON</button>
+        </div>
+        <input type="file" id="profileFileInput" accept=".csv,.json" style="display:none" />
+      </div>
+
+      <div id="profilePreview" class="profile-preview hidden">
+        <div class="section-header-row">
+          <p class="section-label">Profile Fields</p>
+          <button id="clearProfileBtn" class="btn-text-danger" title="Clear all profile data">Clear All</button>
+        </div>
+        
+        <input type="text" id="profileSearchInput" placeholder="🔍 Search fields..." class="search-input" />
+        
+        <div class="fields-container-scroll">
+          <div id="profileFields" class="fields-list"></div>
+        </div>
+
+        <div class="add-field-form">
+          <p class="section-label-mini">Add Custom Field</p>
+          <div class="add-field-row">
+            <input type="text" id="newFieldKey" placeholder="Field name (e.g. key)" />
+            <input type="text" id="newFieldValue" placeholder="Value" />
+            <button id="addFieldBtn" class="btn-icon-add" title="Add Field">+</button>
+          </div>
+        </div>
+
+        <button id="saveProfileBtn" class="btn-primary full-width mt-4">
+          💾 Save Profile Changes
+        </button>
+      </div>
+
+      <button id="fillNowBtn" class="btn-primary full-width">
+        ⚡ Fill Form Now
+      </button>
+      <div id="fillResult" class="result-msg hidden"></div>
+    </div>
+
+    <!-- RESUME TAB -->
+    <div class="tab-content" id="tab-resume">
+      <div class="section">
+        <p class="section-label">Your Base Resume</p>
+        <div class="file-row">
+          <span id="resumeFileName" class="file-name muted">No resume loaded</span>
+          <button id="loadResumeBtn" class="btn-secondary">Upload PDF/TXT</button>
+        </div>
+        <input type="file" id="resumeFileInput" accept=".pdf,.txt,.docx" style="display:none" />
+      </div>
+
+      <div class="section">
+        <p class="section-label">Job Description (paste or auto-detect)</p>
+        <textarea id="jobDescInput" placeholder="Paste the job description here, or click Detect from Page..." rows="5"></textarea>
+        <button id="detectJobBtn" class="btn-secondary full-width mt-4">🔍 Detect from Page</button>
+      </div>
+
+      <button id="tailorBtn" class="btn-primary full-width">
+        🤖 Tailor Resume with AI
+      </button>
+
+      <div id="tailorResult" class="tailor-result hidden">
+        <p class="section-label">Tailored Resume</p>
+        <textarea id="tailoredOutput" rows="8" readonly></textarea>
+        <div class="btn-row">
+          <button id="copyResumeBtn" class="btn-secondary">📋 Copy</button>
+          <button id="downloadResumeBtn" class="btn-secondary">⬇ Download .txt</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div class="tab-content" id="tab-settings">
+      <div class="section">
+        <label class="section-label" for="providerSelect">AI Provider</label>
+        <select id="providerSelect">
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="ollama">Ollama (Local)</option>
+          <option value="custom">Custom (OpenAI-compatible)</option>
+        </select>
+      </div>
+
+      <div class="section hidden" id="customEndpointSection">
+        <label class="section-label" for="customEndpointInput">API Endpoint</label>
+        <input type="text" id="customEndpointInput" placeholder="http://localhost:11434/v1/chat/completions" />
+      </div>
+
+      <div class="section">
+        <label class="section-label" for="apiKeyInput">API Key</label>
+        <div class="api-row">
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-..." />
+          <button id="showKeyBtn" class="btn-icon">👁</button>
+        </div>
+        <p id="keyHint" class="hint muted"></p>
+        <button id="saveKeyBtn" class="btn-primary full-width mt-4">Save Settings</button>
+        <p id="keyStatus" class="hint muted"></p>
+      </div>
+
+      <div class="section" id="modelSelectSection">
+        <label class="section-label" for="modelSelect">AI Model</label>
+        <select id="modelSelect"></select>
+      </div>
+
+      <div class="section hidden" id="customModelSection">
+        <label class="section-label" for="customModelInput">Model Name</label>
+        <input type="text" id="customModelInput" placeholder="llama3.2" />
+      </div>
+
+      <div class="section">
+        <label class="toggle-row">
+          <span>Smart field matching (fuzzy)</span>
+          <label class="switch">
+            <input type="checkbox" id="fuzzyMatchToggle" checked />
+            <span class="slider"></span>
+          </label>
+        </label>
+        <label class="toggle-row mt-4">
+          <span>Show fill notifications</span>
+          <label class="switch">
+            <input type="checkbox" id="notifyToggle" checked />
+            <span class="slider"></span>
+          </label>
+        </label>
+      </div>
+
+      <div class="version">JobFill AI v1.0.0</div>
+    </div>
+  </div>
+
+  <script src="src/ai-providers.js"></script>
+  <script src="src/popup.js"></script>
+</body>
+</html>
