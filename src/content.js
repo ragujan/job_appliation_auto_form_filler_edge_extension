@@ -1,5 +1,5 @@
 // ─── JobFill AI — Content Script ─────────────────────────────────────────────
-// Injected on known ATS domains (auto-fill on load) or on demand via scripting.
+// Injected on demand via activeTab + scripting when the user clicks an action.
 
 (function () {
   if (window.__jobfillInjected) return;
@@ -395,6 +395,9 @@
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'FILL_FORM') {
       const count = fillForms(msg.profileData, msg.fuzzyMatch);
+      chrome.storage.local.get(['autoFill'], res => {
+        if (res.autoFill) startMutationObserver();
+      });
       sendResponse({ filled: count });
       return true;
     }
@@ -474,23 +477,8 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // ── Auto-fill on page load ────────────────────────────────────────────────
-  chrome.storage.local.get(['autoFill', 'profileData', 'fuzzyMatch', 'notify'], res => {
-    if (res.autoFill) {
-      startMutationObserver();
-    }
-
-    // Slight delay to let SPA forms render
-    setTimeout(() => {
-      if (res.autoFill && res.profileData) {
-        const filled = fillForms(res.profileData, res.fuzzyMatch ?? true);
-        if (filled > 0 && res.notify) {
-          showToast(`⚡ JobFill: filled ${filled} field(s)`);
-        }
-      }
-      checkRevisitBanner();
-    }, 1200);
-  });
+  // ── Init (injected on user action only — no automatic form filling) ───────
+  checkRevisitBanner();
 
   // Re-check banner on SPA navigation
   const pushState = history.pushState;

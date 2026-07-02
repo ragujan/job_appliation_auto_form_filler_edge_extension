@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobFill AI — Privacy Policy</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --text: #1a1a1a;
+      --muted: #555;
+      --bg: #fff;
+      --border: #e5e5e5;
+      --accent: #7c6af7;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #f0f0f0;
+        --muted: #aaa;
+        --bg: #121212;
+        --border: #333;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      padding: 2rem 1rem 4rem;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.75rem;
+      margin-bottom: 0.25rem;
+    }
+    h2 {
+      font-size: 1.15rem;
+      margin-top: 2rem;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+    p, li { margin: 0.5rem 0; }
+    ul { padding-left: 1.25rem; }
+    .meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--border); }
+    .summary {
+      border-left: 3px solid var(--accent);
+      padding: 0.75rem 1rem;
+      margin-top: 2rem;
+      background: color-mix(in srgb, var(--accent) 8%, transparent);
+    }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>JobFill AI — Privacy Policy</h1>
+    <p class="meta">
+      <strong>Effective date:</strong> July 2, 2026<br />
+      <strong>Last updated:</strong> July 2, 2026
+    </p>
+
+    <p>
+      JobFill AI (“we”, “our”, or “the extension”) is a browser extension that helps you
+      auto-fill job application forms, track applications, and tailor your resume using AI.
+      This policy explains what information the extension handles and how it is used.
+    </p>
+    <p>
+      We do <strong>not</strong> operate a backend server. Your data is stored on your device
+      unless you choose to send it to a third-party AI provider (see Section 4).
+    </p>
+
+    <h2>1. Information we handle</h2>
+
+    <h3>Information you provide</h3>
+    <p>When you use JobFill AI, you may store:</p>
+    <ul>
+      <li><strong>Profile data</strong> — name, email, phone, address, work history, links, cover letter text, and other fields you load or enter</li>
+      <li><strong>Resume content</strong> — text or PDF files you upload</li>
+      <li><strong>Job application records</strong> — job titles, companies, URLs, status, and notes</li>
+      <li><strong>AI settings</strong> — your chosen provider, model, and API key (optional)</li>
+      <li><strong>Extension preferences</strong> — auto-fill settings, backup options, and similar toggles</li>
+    </ul>
+
+    <h3>Information read from web pages (only when you take action)</h3>
+    <p>
+      The extension does <strong>not</strong> run on every website automatically. It only accesses
+      a web page when <strong>you</strong> trigger an action, such as:
+    </p>
+    <ul>
+      <li><strong>Fill Form Now</strong></li>
+      <li><strong>Detect from Page</strong> (job description)</li>
+      <li><strong>Track This Application</strong> / <strong>Refresh</strong> on the Applications tab</li>
+    </ul>
+    <p>
+      When triggered, the extension may read form fields, job descriptions, and page metadata
+      (e.g. job title, company name, URL) <strong>only on the tab you are actively using</strong>
+      to perform that action.
+    </p>
+
+    <h2>2. How we use your information</h2>
+    <p>We use your information solely to provide extension features:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Use</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Auto-fill</td>
+          <td>Match your profile data to form fields on the current page</td>
+        </tr>
+        <tr>
+          <td>Application tracking</td>
+          <td>Save and display your job search records locally</td>
+        </tr>
+        <tr>
+          <td>Resume tailoring</td>
+          <td>Send your resume and job description to your chosen AI provider when you click <strong>Tailor Resume with AI</strong></td>
+        </tr>
+        <tr>
+          <td>Backup / export</td>
+          <td>Save copies of your data locally in browser storage or a folder you choose</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>We do <strong>not</strong> use your data for advertising, profiling, or selling to third parties.</p>
+
+    <h2>3. Where your data is stored</h2>
+
+    <h3>Browser storage (default)</h3>
+    <p>
+      By default, all data is stored locally in your browser using Chrome/Edge extension storage
+      (<code>chrome.storage.local</code>). It stays on your device and is not uploaded to us.
+    </p>
+
+    <h3>Optional local folder backup</h3>
+    <p>
+      If you enable folder backup, the extension can write JSON files to a folder
+      <strong>you select</strong> on your computer. We do not access that folder except when
+      you choose backup, sync, or import actions.
+    </p>
+
+    <h3>Optional export / import</h3>
+    <p>
+      You may export or import backup files manually. Those files remain under your control.
+    </p>
+
+    <h2>4. Third-party AI providers</h2>
+    <p>
+      If you use <strong>Tailor Resume with AI</strong>, the extension sends data
+      <strong>directly from your browser</strong> to the AI provider you configure, such as:
+    </p>
+    <ul>
+      <li>Anthropic (Claude)</li>
+      <li>OpenAI</li>
+      <li>Google Gemini</li>
+      <li>OpenRouter</li>
+      <li>Ollama (local, on your machine)</li>
+      <li>A custom OpenAI-compatible endpoint you specify</li>
+    </ul>
+    <p><strong>What may be sent:</strong> your resume (text or PDF), the job description you provide or detect, and your API credentials (as required by that provider’s API).</p>
+    <p><strong>When it is sent:</strong> only when you click <strong>Tailor Resume with AI</strong>. Nothing is sent for auto-fill or application tracking.</p>
+    <p>
+      Each provider has its own privacy policy and terms. You are responsible for choosing a
+      provider you trust and for your API usage and costs.
+    </p>
+    <p>We do <strong>not</strong> receive, store, or process your AI requests on our own servers.</p>
+
+    <h2>5. What we do not collect</h2>
+    <p>JobFill AI does <strong>not</strong>:</p>
+    <ul>
+      <li>Collect analytics or usage telemetry</li>
+      <li>Use cookies or tracking pixels on a website we operate (this policy page is static)</li>
+      <li>Sell or rent your personal information</li>
+      <li>Automatically upload your profile, resume, or applications to our servers</li>
+    </ul>
+
+    <h2>6. Permissions</h2>
+    <p>The extension requests browser permissions only to function:</p>
+    <ul>
+      <li><strong>Storage</strong> — save your profile, settings, and applications locally</li>
+      <li><strong>Active tab &amp; scripting</strong> — interact with the page you are on when you click an action</li>
+      <li><strong>Tabs</strong> — identify the active tab you are working with</li>
+      <li><strong>Side panel</strong> — display the extension interface</li>
+    </ul>
+    <p>
+      The extension does <strong>not</strong> request broad access to all websites
+      (<code>&lt;all_urls&gt;</code>). Page access occurs only when you initiate an action on
+      the current tab.
+    </p>
+
+    <h2>7. Data retention and deletion</h2>
+    <p>Your data remains on your device until you delete it. You can:</p>
+    <ul>
+      <li>Clear profile data in the extension (<strong>Clear All</strong> on the Auto-Fill tab)</li>
+      <li>Delete individual tracked applications</li>
+      <li>Remove your API key in Settings</li>
+      <li>Export then delete backup files from your folder</li>
+      <li>Remove the extension from your browser (this removes locally stored extension data)</li>
+    </ul>
+    <p>
+      Uninstalling the extension deletes data stored in browser extension storage. Data in an
+      optional backup folder you created is <strong>not</strong> automatically deleted — remove
+      those files manually if desired.
+    </p>
+
+    <h2>8. Security</h2>
+    <p>
+      Your API key and personal data are stored locally in your browser. Optional backups may
+      include your API key if you enable <strong>Include API key in backups</strong>. Keep backup
+      files private.
+    </p>
+    <p>No method of electronic storage is 100% secure. Use the extension only on devices you trust.</p>
+
+    <h2>9. Children’s privacy</h2>
+    <p>
+      JobFill AI is not intended for users under 13 (or the minimum age required in your country).
+      We do not knowingly collect information from children.
+    </p>
+
+    <h2>10. Changes to this policy</h2>
+    <p>
+      We may update this policy from time to time. The “Last updated” date at the top will change
+      when we do. Continued use of the extension after changes means you accept the updated policy.
+    </p>
+
+    <h2>11. Contact</h2>
+    <p>If you have questions about this privacy policy, contact:</p>
+    <p>
+      <strong>JobFill AI</strong><br />
+      <strong>Email:</strong> <a href="mailto:kannadhasanragujan@gmail.com">kannadhasanragujan@gmail.com</a>
+    </p>
+
+    <div class="summary">
+      <h2 style="margin-top: 0;">12. Summary</h2>
+      <ul>
+        <li>Your job search data stays <strong>on your device</strong> by default.</li>
+        <li><strong>No data leaves your browser</strong> except when <strong>you</strong> send resume/job text to <strong>your chosen AI provider</strong>.</li>
+        <li><strong>No analytics. No tracking. No ads.</strong></li>
+        <li>Page access happens <strong>only when you click an action</strong> on the tab you are using.</li>
+      </ul>
+    </div>
+  </main>
+</body>
+</html>

@@ -273,19 +273,21 @@ async function getActiveTab() {
   return tabs[0] || null;
 }
 
-async function fetchPageMetadata(tab) {
-  if (!tab?.id || !isInjectableUrl(tab.url)) return null;
-  try {
-    const meta = await sendToTab(tab.id, { type: 'GET_PAGE_METADATA' });
-    return meta || null;
-  } catch {
-    return {
-      title: tab.title?.split('|')[0]?.trim() || '',
-      company: '',
-      url: tab.url || '',
-      snippet: ''
-    };
+function metadataFromTab(tab) {
+  return {
+    title: tab?.title?.split('|')[0]?.trim() || '',
+    company: '',
+    url: tab?.url || '',
+    snippet: ''
+  };
+}
+
+async function fetchPageMetadataFromPage(tab) {
+  if (!tab?.id || !isInjectableUrl(tab.url)) {
+    throw new Error('Open a job page in the browser.');
   }
+  const meta = await sendToTab(tab.id, { type: 'GET_PAGE_METADATA' });
+  return meta || metadataFromTab(tab);
 }
 
 function setTrackFormMode(existing) {
@@ -325,7 +327,7 @@ async function refreshApplicationsTab() {
   const tab = await getActiveTab();
   currentTabUrl = tab?.url || '';
 
-  if (!tab || !currentTabUrl || currentTabUrl.startsWith('chrome://') || currentTabUrl.startsWith('chrome-extension://')) {
+  if (!tab || !currentTabUrl || !isInjectableUrl(currentTabUrl)) {
     setTrackFormMode(null);
     $('trackNewCard').classList.add('hidden');
     showTrackResult('Open a job page in the browser to track an application.', 'error');
@@ -346,8 +348,7 @@ async function refreshApplicationsTab() {
       setTrackFormMode(existing);
     } else {
       setTrackFormMode(null);
-      const meta = await fetchPageMetadata(tab);
-      if (meta) populateTrackFormFromMetadata(meta, currentTabUrl);
+      populateTrackFormFromMetadata(metadataFromTab(tab), currentTabUrl);
     }
   }
 
@@ -460,7 +461,30 @@ async function removeTrackedApplication(id) {
 $('refreshTrackBtn').addEventListener('click', async () => {
   manualInsertMode = false;
   $('trackResult').classList.add('hidden');
-  await refreshApplicationsTab();
+
+  const tab = await getActiveTab();
+  if (!tab?.id || !isInjectableUrl(tab.url)) {
+    showTrackResult('Open a job page in the browser.', 'error');
+    return;
+  }
+
+  try {
+    const apps = await loadApplications();
+    const existing = findApplicationByUrl(apps, tab.url);
+
+    if (existing) {
+      setTrackFormMode(existing);
+    } else {
+      setTrackFormMode(null);
+      const meta = await fetchPageMetadataFromPage(tab);
+      populateTrackFormFromMetadata(meta, tab.url);
+    }
+
+    showTrackResult('✓ Loaded details from page.', 'success');
+    await renderApplicationsList();
+  } catch (err) {
+    showTrackResult('⚠ ' + (err.message || 'Could not read page. Try refreshing.'), 'error');
+  }
 });
 
 $('clearTrackBtn').addEventListener('click', () => {
@@ -486,7 +510,14 @@ $('trackAppBtn').addEventListener('click', async () => {
     notes: $('trackNotes').value.trim()
   };
 
-  const pageMeta = tab?.id && isInjectableUrl(tab.url) ? await fetchPageMetadata(tab) : null;
+  let pageMeta = null;
+  if (tab?.id && isInjectableUrl(tab.url)) {
+    try {
+      pageMeta = await fetchPageMetadataFromPage(tab);
+    } catch {
+      pageMeta = null;
+    }
+  }
   if (pageMeta?.snippet && !metadata.snippet) metadata.snippet = pageMeta.snippet;
 
   const { application, duplicate } = await addTrackedApplication(metadata);
@@ -997,8 +1028,8 @@ $('fillNowBtn').addEventListener('click', async () => {
       showResult('fillResult', 'ℹ No matching fields found on this page.', 'error');
       setStatus('idle');
     }
-  } catch {
-    showResult('fillResult', '⚠ Could not reach page. Try refreshing.', 'error');
+  } catch (err) {
+    showResult('fillResult', '⚠ ' + (err.message || 'Could not reach page. Try refreshing.'), 'error');
     setStatus('error');
   } finally {
     $('fillNowBtn').disabled = false;
