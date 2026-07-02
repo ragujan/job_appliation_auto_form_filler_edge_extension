@@ -1,5 +1,5 @@
 // ─── JobFill AI — Content Script ─────────────────────────────────────────────
-// Runs on every page. Handles auto-fill on load and on-demand filling.
+// Injected on known ATS domains (auto-fill on load) or on demand via scripting.
 
 (function () {
   if (window.__jobfillInjected) return;
@@ -212,6 +212,185 @@
     return longest;
   }
 
+  // ── Extract job title / company from page ─────────────────────────────────
+  function textFromSelector(selectors) {
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      const t = el?.innerText?.trim() || el?.textContent?.trim();
+      if (t && t.length > 0 && t.length < 300) return t;
+    }
+    return '';
+  }
+
+  function extractFromJsonLd() {
+    let title = '';
+    let company = '';
+    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        const data = JSON.parse(script.textContent);
+        const items = Array.isArray(data) ? data : [data];
+        for (const item of items) {
+          if (item['@type'] === 'JobPosting' || item.title) {
+            title = title || item.title || item.name || '';
+            company = company || item.hiringOrganization?.name || item.employer?.name || '';
+          }
+        }
+      } catch { /* ignore invalid JSON-LD */ }
+    }
+    return { title, company };
+  }
+
+  function extractJobMetadata() {
+    const jsonLd = extractFromJsonLd();
+    const ogTitle = document.querySelector('meta[property="og:title"]')?.content?.trim() || '';
+
+    const title = textFromSelector([
+      '.jobs-unified-top-card__job-title',
+      '.job-details-jobs-unified-top-card__job-title',
+      'h1[data-automation-id="jobPostingHeader"]',
+      '[data-automation-id="jobPostingHeader"] h1',
+      '.posting-headline h2',
+      '.posting-headline',
+      '.app-title',
+      '.job-title',
+      '.job__title',
+      '#job-title',
+      '.jobsearch-JobInfoHeader-title',
+      'h1'
+    ]) || jsonLd.title || ogTitle || document.title.split('|')[0].split('-')[0].trim();
+
+    const company = textFromSelector([
+      '.jobs-unified-top-card__company-name',
+      '.job-details-jobs-unified-top-card__company-name',
+      '[data-automation-id="company"]',
+      '.company-name',
+      '.posting-company',
+      '.employer-name',
+      '.job__location + .job__company',
+      '.jobsearch-InlineCompanyRating a',
+      '.jobsearch-CompanyInfoWithoutHeaderImage a'
+    ]) || jsonLd.company;
+
+    const desc = extractJobDescription();
+    const snippet = desc ? desc.slice(0, 200) : '';
+
+    return {
+      title: title || '',
+      company: company || '',
+      url: location.href,
+      snippet
+    };
+  }
+
+  // ── Revisit banner for tracked applications ───────────────────────────────
+  let revisitBannerEl = null;
+
+  function removeRevisitBanner() {
+    if (revisitBannerEl) {
+      revisitBannerEl.remove();
+      revisitBannerEl = null;
+    }
+  }
+
+  function showRevisitBanner(application) {
+    if (sessionStorage.getItem(`jobfill-banner-dismiss-${application.id}`)) return;
+
+    removeRevisitBanner();
+
+    const banner = document.createElement('div');
+    banner.id = 'jobfill-revisit-banner';
+    Object.assign(banner.style, {
+      position: 'fixed',
+      bottom: '24px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: '#161622',
+      color: '#e4e4f0',
+      border: '1px solid #3d2fa8',
+      padding: '12px 16px',
+      borderRadius: '12px',
+      fontSize: '13px',
+      zIndex: '2147483646',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      maxWidth: 'min(560px, calc(100vw - 32px))',
+      flexWrap: 'wrap'
+    });
+
+    const label = document.createElement('span');
+    label.style.flex = '1';
+    label.style.minWidth = '180px';
+    const displayTitle = application.title || 'Untitled role';
+    const displayCompany = application.company || 'Unknown company';
+    label.innerHTML = `<strong style="color:#a89df5">Tracked:</strong> ${escapeHtml(displayCompany)} — ${escapeHtml(displayTitle)}`;
+
+    const select = document.createElement('select');
+    Object.assign(select.style, {
+      background: '#0f0f13',
+      border: '1px solid #2a2a3e',
+      borderRadius: '6px',
+      color: '#e4e4f0',
+      padding: '6px 8px',
+      fontSize: '12px',
+      cursor: 'pointer'
+    });
+    APPLICATION_STATUSES.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.value;
+      opt.textContent = s.label;
+      if (s.value === application.status) opt.selected = true;
+      select.appendChild(opt);
+    });
+
+    select.addEventListener('change', async () => {
+      const apps = await loadApplications();
+      const updated = updateApplication(apps, application.id, { status: select.value });
+      await saveApplications(updated);
+      application.status = select.value;
+      showToast(`Status updated: ${getStatusLabel(select.value)}`);
+    });
+
+    const dismiss = document.createElement('button');
+    dismiss.textContent = '×';
+    dismiss.title = 'Dismiss for this session';
+    Object.assign(dismiss.style, {
+      background: 'none',
+      border: 'none',
+      color: '#6b6b8a',
+      fontSize: '18px',
+      cursor: 'pointer',
+      padding: '0 4px',
+      lineHeight: '1'
+    });
+    dismiss.addEventListener('click', () => {
+      sessionStorage.setItem(`jobfill-banner-dismiss-${application.id}`, '1');
+      removeRevisitBanner();
+    });
+
+    banner.appendChild(label);
+    banner.appendChild(select);
+    banner.appendChild(dismiss);
+    document.body.appendChild(banner);
+    revisitBannerEl = banner;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  async function checkRevisitBanner() {
+    const apps = await loadApplications();
+    const match = findApplicationByUrl(apps, location.href);
+    if (match) {
+      showRevisitBanner(match);
+    } else {
+      removeRevisitBanner();
+    }
+  }
+
   // ── Message listener ──────────────────────────────────────────────────────
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'FILL_FORM') {
@@ -223,6 +402,11 @@
     if (msg.type === 'GET_JOB_DESC') {
       const text = extractJobDescription();
       sendResponse({ text });
+      return true;
+    }
+
+    if (msg.type === 'GET_PAGE_METADATA') {
+      sendResponse(extractJobMetadata());
       return true;
     }
 
@@ -295,28 +479,43 @@
     if (res.autoFill) {
       startMutationObserver();
     }
-    
-    if (!res.autoFill || !res.profileData) return;
 
     // Slight delay to let SPA forms render
     setTimeout(() => {
-      const filled = fillForms(res.profileData, res.fuzzyMatch ?? true);
-      if (filled > 0 && res.notify) {
-        showToast(`⚡ JobFill: filled ${filled} field(s)`);
+      if (res.autoFill && res.profileData) {
+        const filled = fillForms(res.profileData, res.fuzzyMatch ?? true);
+        if (filled > 0 && res.notify) {
+          showToast(`⚡ JobFill: filled ${filled} field(s)`);
+        }
       }
+      checkRevisitBanner();
     }, 1200);
   });
 
-  // Listen for settings changes to start/stop the observer dynamically
+  // Re-check banner on SPA navigation
+  const pushState = history.pushState;
+  const replaceState = history.replaceState;
+  history.pushState = function (...args) {
+    pushState.apply(this, args);
+    setTimeout(checkRevisitBanner, 500);
+  };
+  history.replaceState = function (...args) {
+    replaceState.apply(this, args);
+    setTimeout(checkRevisitBanner, 500);
+  };
+  window.addEventListener('popstate', () => setTimeout(checkRevisitBanner, 500));
+
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.autoFill) {
+    if (area !== 'local') return;
+    if (changes.applications) {
+      checkRevisitBanner();
+    }
+    if (changes.autoFill) {
       if (changes.autoFill.newValue) {
         startMutationObserver();
-      } else {
-        if (observer) {
-          observer.disconnect();
-          observer = null;
-        }
+      } else if (observer) {
+        observer.disconnect();
+        observer = null;
       }
     }
   });

@@ -35,6 +35,12 @@ chrome.runtime.onInstalled.addListener(() => {
     if (res.model === undefined) defaults.model = 'claude-sonnet-4-20250514';
     if (Object.keys(defaults).length) chrome.storage.local.set(defaults);
   });
+
+  chrome.storage.local.get(['backupMode'], res => {
+    if (res.backupMode === undefined) {
+      chrome.storage.local.set({ backupMode: 'browser' });
+    }
+  });
 });
 
 // Fallback for browsers without side panel support

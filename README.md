@@ -8,7 +8,7 @@ Auto-fill job application forms + AI-powered resume tailoring.
 
 ### Auto-Fill tab
 
-Load your profile from CSV/JSON, review and edit fields, then fill job forms in one click.
+Load your profile from JSON, review and edit fields, then fill job forms in one click.
 
 <p align="center">
   <img src="sample_images/1.jpg" alt="Auto-Fill tab — profile fields loaded from CSV/JSON" width="320" />
@@ -47,28 +47,27 @@ Choose your AI provider, add your API key, pick a model, and toggle smart matchi
 ## 🚀 Quick Start
 
 ### 1. Set up your profile data
-Edit `my-profile.csv` (or `my-profile.json`) with **your real info**.
+Create `my-profile.json` with **your real info**:
 
-**CSV format** (one field per line):
+```json
+{
+  "first_name": "Your First Name",
+  "last_name": "Your Last Name",
+  "email": "your@email.com",
+  "phone": "+1-555-000-0000"
+}
+```
+
+Legacy CSV files (one field per line) can still be imported:
 ```
 first_name,Your First Name
 last_name,Your Last Name
 email,your@email.com
-phone,+1-555-000-0000
-...
-```
-
-**JSON format** (also supported):
-```json
-{
-  "first_name": "Your First Name",
-  "email": "your@email.com"
-}
 ```
 
 ### 2. Load your profile into the extension
 - Click the ⚡ icon → **Auto-Fill tab**
-- Click **"Load CSV/JSON"** → select your profile file
+- Click **"Load JSON"** → select your profile file
 
 ### 3. Fill a form
 - Open any job application page

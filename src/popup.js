@@ -18,8 +18,177 @@ function showResult(elId, msg, type = 'success') {
   el.className = `result-msg ${type}`;
 }
 
+function downloadTextFile(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadJsonFile(filename, data) {
+  const content = JSON.stringify(data, null, 2);
+  const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function collectProfileFromUI() {
+  const data = {};
+  document.querySelectorAll('.profile-field-item').forEach(item => {
+    const key = item.querySelector('.field-key-input').value.trim();
+    const val = item.querySelector('.field-val-input').value.trim();
+    if (key) data[key] = val;
+  });
+  return data;
+}
+
+function parseProfileFile(text, filename) {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+
+  if (filename.endsWith('.json') || filename.endsWith('.txt')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch {
+      if (filename.endsWith('.json')) throw new Error('Invalid JSON file.');
+    }
+  }
+
+  if (filename.endsWith('.csv') || filename.endsWith('.txt')) {
+    return parseCSV(text);
+  }
+
+  throw new Error('Unsupported profile file format.');
+}
+
 function setStatus(type) {
   $('status-dot').className = `status-dot ${type}`;
+}
+
+function showBackupResult(msg, type = 'success') {
+  const el = $('backupResult');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = `result-msg ${type}`;
+}
+
+async function refreshBackupUI() {
+  const status = await getBackupFolderStatus();
+  const el = $('backupFolderStatus');
+  const chooseBtn = $('chooseFolderBtn');
+  const syncBtn = $('syncNowBtn');
+  const disconnectBtn = $('disconnectFolderBtn');
+  const reconnectBtn = $('reconnectFolderBtn');
+
+  if (!el) return;
+
+  if (!status.folderSyncSupported) {
+    el.textContent = 'Browser storage only — folder sync not supported here. Use Export/Import.';
+    el.className = 'backup-status warning';
+    chooseBtn?.classList.add('hidden');
+    syncBtn?.classList.add('hidden');
+    disconnectBtn?.classList.add('hidden');
+    reconnectBtn?.classList.add('hidden');
+    return;
+  }
+
+  chooseBtn?.classList.remove('hidden');
+
+  if (status.connected) {
+    const syncTime = status.lastDiskSyncAt
+      ? `Last sync: ${new Date(status.lastDiskSyncAt).toLocaleString()}`
+      : 'Not synced yet';
+    el.textContent = `✓ Folder: ${status.folderName}\n${syncTime}`;
+    el.className = 'backup-status connected';
+    syncBtn?.classList.remove('hidden');
+    disconnectBtn?.classList.remove('hidden');
+    reconnectBtn?.classList.add('hidden');
+  } else if (status.needsReconnect) {
+    el.textContent = `⚠ Folder "${status.folderName}" needs permission. Click Reconnect.`;
+    el.className = 'backup-status warning';
+    syncBtn?.classList.add('hidden');
+    disconnectBtn?.classList.remove('hidden');
+    reconnectBtn?.classList.remove('hidden');
+  } else {
+    el.textContent = 'Browser storage only — choose a folder to auto-sync backups.';
+    el.className = 'backup-status muted';
+    syncBtn?.classList.add('hidden');
+    disconnectBtn?.classList.add('hidden');
+    reconnectBtn?.classList.add('hidden');
+  }
+}
+
+async function reloadUIFromStorage() {
+  const res = await storageGet([
+    'autoFill', 'fuzzyMatch', 'notify', 'apiKey', 'aiProvider', 'model',
+    'customEndpoint', 'customModel', 'profileData', 'profileName', 'resumeName',
+    'backupIncludeApiKey'
+  ]);
+
+  $('autoFillToggle').checked = res.autoFill ?? false;
+  $('fuzzyMatchToggle').checked = res.fuzzyMatch ?? true;
+  $('notifyToggle').checked = res.notify ?? true;
+  if (res.apiKey) $('apiKeyInput').value = res.apiKey;
+  if (res.aiProvider) $('providerSelect').value = res.aiProvider;
+  if (res.customEndpoint) $('customEndpointInput').value = res.customEndpoint;
+  if (res.customModel) {
+    $('customModelInput').value = res.customModel;
+  } else if (res.model && (res.aiProvider === 'ollama' || res.aiProvider === 'custom')) {
+    $('customModelInput').value = res.model;
+  }
+  updateProviderUI(res.model);
+
+  if (res.profileName) {
+    $('profileFileName').textContent = res.profileName;
+    $('profileFileName').classList.remove('muted');
+  }
+  if (res.resumeName) {
+    $('resumeFileName').textContent = res.resumeName;
+    $('resumeFileName').classList.remove('muted');
+  }
+  if ($('backupIncludeApiKeyToggle')) {
+    $('backupIncludeApiKeyToggle').checked = !!res.backupIncludeApiKey;
+  }
+
+  renderProfilePreview(res.profileData || {});
+  renderApplicationsList();
+  await refreshBackupUI();
+}
+
+function maybeShowSetupModal() {
+  chrome.storage.local.get(['setupComplete'], res => {
+    if (res.setupComplete) return;
+    $('setupModal')?.classList.remove('hidden');
+  });
+}
+
+async function completeSetup(mode) {
+  if (mode === 'folder') {
+    try {
+      await chooseBackupFolder();
+      await reloadUIFromStorage();
+      showBackupResult('✓ Backup folder connected.', 'success');
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        showBackupResult('⚠ ' + err.message, 'error');
+      }
+      await storageSet({ backupMode: 'browser' });
+    }
+  } else {
+    await storageSet({ backupMode: 'browser' });
+  }
+
+  await storageSet({ setupComplete: true });
+  $('setupModal')?.classList.add('hidden');
+  await refreshBackupUI();
 }
 
 // ─── Tab switching ────────────────────────────────────────────────────────────
@@ -29,11 +198,14 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     tab.classList.add('active');
     $(`tab-${tab.dataset.tab}`).classList.add('active');
+    if (tab.dataset.tab === 'applications') {
+      refreshApplicationsTab();
+    }
   });
 });
 
 // ─── Load settings on open ───────────────────────────────────────────────────
-chrome.storage.local.get(['autoFill', 'fuzzyMatch', 'notify', 'apiKey', 'aiProvider', 'model', 'customEndpoint', 'customModel', 'profileData', 'profileName', 'resumeName'], res => {
+chrome.storage.local.get(['autoFill', 'fuzzyMatch', 'notify', 'apiKey', 'aiProvider', 'model', 'customEndpoint', 'customModel', 'profileData', 'profileName', 'resumeName', 'backupIncludeApiKey'], res => {
   $('autoFillToggle').checked = res.autoFill ?? false;
   $('fuzzyMatchToggle').checked = res.fuzzyMatch ?? true;
   $('notifyToggle').checked = res.notify ?? true;
@@ -54,8 +226,326 @@ chrome.storage.local.get(['autoFill', 'fuzzyMatch', 'notify', 'apiKey', 'aiProvi
     $('resumeFileName').textContent = res.resumeName;
     $('resumeFileName').classList.remove('muted');
   }
+  if ($('backupIncludeApiKeyToggle')) {
+    $('backupIncludeApiKeyToggle').checked = !!res.backupIncludeApiKey;
+  }
   renderProfilePreview(res.profileData || {});
+  populateStatusSelects();
+  renderApplicationsList();
+  runStartupBackupTasks().then(async ({ loaded }) => {
+    if (loaded) await reloadUIFromStorage();
+    else await refreshBackupUI();
+    maybeShowSetupModal();
+  });
 });
+
+// ─── Applications tracking ────────────────────────────────────────────────────
+let currentTabUrl = '';
+let currentTrackedApp = null;
+let manualInsertMode = false;
+
+function populateStatusSelects() {
+  ['trackStatus', 'trackEditStatus'].forEach(id => {
+    const sel = $(id);
+    if (!sel || sel.options.length > 0) return;
+    APPLICATION_STATUSES.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.value;
+      opt.textContent = s.label;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function showTrackResult(msg, type = 'success') {
+  const el = $('trackResult');
+  el.textContent = msg;
+  el.className = `result-msg ${type}`;
+}
+
+function formatAppDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+async function getActiveTab() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tabs[0] || null;
+}
+
+async function fetchPageMetadata(tab) {
+  if (!tab?.id || !isInjectableUrl(tab.url)) return null;
+  try {
+    const meta = await sendToTab(tab.id, { type: 'GET_PAGE_METADATA' });
+    return meta || null;
+  } catch {
+    return {
+      title: tab.title?.split('|')[0]?.trim() || '',
+      company: '',
+      url: tab.url || '',
+      snippet: ''
+    };
+  }
+}
+
+function setTrackFormMode(existing) {
+  currentTrackedApp = existing || null;
+  if (existing) {
+    $('trackExistingCard').classList.remove('hidden');
+    $('trackNewCard').classList.add('hidden');
+    $('trackEditTitle').value = existing.title || '';
+    $('trackEditCompany').value = existing.company || '';
+    $('trackEditStatus').value = existing.status || 'applied';
+    $('trackEditNotes').value = existing.notes || '';
+  } else {
+    $('trackExistingCard').classList.add('hidden');
+    $('trackNewCard').classList.remove('hidden');
+  }
+}
+
+function resetTrackForm() {
+  $('trackUrl').value = '';
+  $('trackTitle').value = '';
+  $('trackCompany').value = '';
+  $('trackStatus').value = 'applied';
+  $('trackNotes').value = '';
+  setTrackFormMode(null);
+}
+
+function populateTrackFormFromMetadata(meta, tabUrl) {
+  $('trackUrl').value = tabUrl || meta.url || '';
+  $('trackTitle').value = meta.title || '';
+  $('trackCompany').value = meta.company || '';
+  $('trackStatus').value = 'applied';
+  $('trackNotes').value = '';
+}
+
+async function refreshApplicationsTab() {
+  populateStatusSelects();
+  const tab = await getActiveTab();
+  currentTabUrl = tab?.url || '';
+
+  if (!tab || !currentTabUrl || currentTabUrl.startsWith('chrome://') || currentTabUrl.startsWith('chrome-extension://')) {
+    setTrackFormMode(null);
+    $('trackNewCard').classList.add('hidden');
+    showTrackResult('Open a job page in the browser to track an application.', 'error');
+    await renderApplicationsList();
+    return;
+  }
+
+  $('trackResult').classList.add('hidden');
+  $('trackNewCard').classList.remove('hidden');
+
+  if (manualInsertMode) {
+    setTrackFormMode(null);
+  } else {
+    const apps = await loadApplications();
+    const existing = findApplicationByUrl(apps, currentTabUrl);
+
+    if (existing) {
+      setTrackFormMode(existing);
+    } else {
+      setTrackFormMode(null);
+      const meta = await fetchPageMetadata(tab);
+      if (meta) populateTrackFormFromMetadata(meta, currentTabUrl);
+    }
+  }
+
+  await renderApplicationsList();
+}
+
+function renderApplicationsList() {
+  loadApplications().then(apps => {
+    const list = $('applicationsList');
+    const query = ($('appSearchInput')?.value || '').toLowerCase().trim();
+    $('appCount').textContent = String(apps.length);
+
+    const filtered = apps.filter(app => {
+      if (!query) return true;
+      const hay = [app.title, app.company, app.url, app.notes, getStatusLabel(app.status)]
+        .join(' ').toLowerCase();
+      return hay.includes(query);
+    });
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<p class="hint muted apps-empty">${apps.length === 0 ? 'No applications tracked yet.' : 'No matches found.'}</p>`;
+      return;
+    }
+
+    list.innerHTML = '';
+    filtered.forEach(app => {
+      list.appendChild(createApplicationCard(app));
+    });
+  });
+}
+
+function createApplicationCard(app) {
+  const card = document.createElement('div');
+  card.className = 'app-card';
+  card.dataset.id = app.id;
+
+  const title = app.title || 'Untitled role';
+  const company = app.company || 'Unknown company';
+
+  card.innerHTML = `
+    <div class="app-card-header">
+      <div>
+        <div class="app-card-title">${escHtml(title)}</div>
+        <div class="app-card-company">${escHtml(company)}</div>
+      </div>
+      <span class="status-badge status-${app.status}">${escHtml(getStatusLabel(app.status))}</span>
+    </div>
+    <div class="app-card-meta">Applied ${escHtml(formatAppDate(app.appliedAt))}</div>
+    ${app.notes ? `<div class="app-card-notes">${escHtml(app.notes)}</div>` : ''}
+    <div class="app-card-actions">
+      <select class="app-status-select" data-id="${app.id}"></select>
+      <a class="btn-app-link app-open-link" target="_blank" rel="noopener">Open</a>
+      <button class="btn-app-delete" data-id="${app.id}" title="Delete">×</button>
+    </div>
+  `;
+
+  card.querySelector('.app-open-link').href = app.url;
+
+  const sel = card.querySelector('.app-status-select');
+  APPLICATION_STATUSES.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.value;
+    opt.textContent = s.label;
+    if (s.value === app.status) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  sel.addEventListener('change', async () => {
+    await updateTrackedApplication(app.id, { status: sel.value });
+    renderApplicationsList();
+    if (currentTrackedApp?.id === app.id) {
+      $('trackEditStatus').value = sel.value;
+    }
+  });
+
+  card.querySelector('.btn-app-delete').addEventListener('click', async () => {
+    if (!confirm(`Delete tracking for "${title}" at ${company}?`)) return;
+    await removeTrackedApplication(app.id);
+    if (currentTrackedApp?.id === app.id) {
+      await refreshApplicationsTab();
+    } else {
+      renderApplicationsList();
+    }
+  });
+
+  return card;
+}
+
+async function addTrackedApplication(metadata) {
+  const apps = await loadApplications();
+  const result = appendApplication(apps, metadata);
+  if (!result.duplicate) await saveApplications(result.apps);
+  return result;
+}
+
+async function updateTrackedApplication(id, patch) {
+  const apps = await loadApplications();
+  const updated = updateApplication(apps, id, patch);
+  await saveApplications(updated);
+  return updated;
+}
+
+async function removeTrackedApplication(id) {
+  const apps = await loadApplications();
+  const updated = deleteApplication(apps, id);
+  await saveApplications(updated);
+  return updated;
+}
+
+$('refreshTrackBtn').addEventListener('click', async () => {
+  manualInsertMode = false;
+  $('trackResult').classList.add('hidden');
+  await refreshApplicationsTab();
+});
+
+$('clearTrackBtn').addEventListener('click', () => {
+  manualInsertMode = true;
+  resetTrackForm();
+  $('trackResult').classList.add('hidden');
+});
+
+$('trackAppBtn').addEventListener('click', async () => {
+  const tab = await getActiveTab();
+  const url = ($('trackUrl').value.trim() || tab?.url || '').trim();
+
+  if (!url) {
+    showTrackResult('Enter a job page URL or open a job page in the browser.', 'error');
+    return;
+  }
+
+  const metadata = {
+    url,
+    title: $('trackTitle').value.trim(),
+    company: $('trackCompany').value.trim(),
+    status: $('trackStatus').value,
+    notes: $('trackNotes').value.trim()
+  };
+
+  const pageMeta = tab?.id && isInjectableUrl(tab.url) ? await fetchPageMetadata(tab) : null;
+  if (pageMeta?.snippet && !metadata.snippet) metadata.snippet = pageMeta.snippet;
+
+  const { application, duplicate } = await addTrackedApplication(metadata);
+
+  if (duplicate) {
+    showTrackResult('This URL is already tracked.', 'error');
+    if (!manualInsertMode) setTrackFormMode(application);
+    return;
+  }
+
+  manualInsertMode = false;
+  showTrackResult(`✓ Saved: ${application.company || 'Application'} — ${application.title || 'Untitled'}`, 'success');
+  resetTrackForm();
+  renderApplicationsList();
+  setStatus('success');
+  setTimeout(() => setStatus('idle'), 2000);
+});
+
+$('updateTrackedBtn').addEventListener('click', async () => {
+  if (!currentTrackedApp) return;
+
+  const updated = await updateTrackedApplication(currentTrackedApp.id, {
+    title: $('trackEditTitle').value.trim(),
+    company: $('trackEditCompany').value.trim(),
+    status: $('trackEditStatus').value,
+    notes: $('trackEditNotes').value.trim()
+  });
+
+  currentTrackedApp = updated.find(a => a.id === currentTrackedApp.id);
+  showTrackResult('✓ Application updated.', 'success');
+  renderApplicationsList();
+  setStatus('success');
+  setTimeout(() => setStatus('idle'), 2000);
+});
+
+$('appSearchInput')?.addEventListener('input', () => renderApplicationsList());
+
+$('exportAppsBtn')?.addEventListener('click', async () => {
+  const apps = await loadApplications();
+  if (apps.length === 0) {
+    alert('No applications to export.');
+    return;
+  }
+  const date = new Date().toISOString().slice(0, 10);
+  downloadTextFile(`job-applications-${date}.txt`, formatApplicationsAsText(apps));
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.applications) {
+    const appsTab = document.querySelector('.tab[data-tab="applications"]');
+    if (appsTab?.classList.contains('active')) {
+      renderApplicationsList();
+    }
+  }
+  if (area === 'local' && (changes.applications || changes.profileData || changes.pendingDiskSync)) {
+    refreshBackupUI();
+  }
+});
+
 
 function getSelectedProvider() {
   return $('providerSelect').value || 'anthropic';
@@ -107,10 +597,116 @@ function updateProviderUI(savedModel) {
 
 $('providerSelect').addEventListener('change', () => updateProviderUI());
 
+// ─── Data & Backup ───────────────────────────────────────────────────────────
+$('chooseFolderBtn')?.addEventListener('click', async () => {
+  try {
+    const name = await chooseBackupFolder();
+    await reloadUIFromStorage();
+    showBackupResult(`✓ Saving to folder: ${name}`, 'success');
+    await refreshBackupUI();
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      showBackupResult('⚠ ' + err.message, 'error');
+    }
+  }
+});
+
+$('reconnectFolderBtn')?.addEventListener('click', async () => {
+  try {
+    const result = await syncToBackupFolder({ force: true });
+    if (result.ok) {
+      showBackupResult('✓ Folder reconnected and synced.', 'success');
+    } else {
+      showBackupResult('⚠ Could not access folder. Choose it again.', 'error');
+    }
+    await refreshBackupUI();
+  } catch (err) {
+    showBackupResult('⚠ ' + err.message, 'error');
+  }
+});
+
+$('syncNowBtn')?.addEventListener('click', async () => {
+  try {
+    const result = await syncToBackupFolder();
+    if (result.ok) {
+      showBackupResult('✓ Synced to backup folder.', 'success');
+    } else if (result.reason === 'permission') {
+      showBackupResult('⚠ Folder permission needed. Click Reconnect.', 'error');
+    } else {
+      showBackupResult('ℹ Nothing to sync.', 'error');
+    }
+    await refreshBackupUI();
+  } catch (err) {
+    showBackupResult('⚠ ' + err.message, 'error');
+  }
+});
+
+$('disconnectFolderBtn')?.addEventListener('click', async () => {
+  if (!confirm('Stop syncing to the backup folder? Browser data will stay intact.')) return;
+  await disconnectBackupFolder();
+  showBackupResult('✓ Folder disconnected. Data remains in browser.', 'success');
+  await refreshBackupUI();
+});
+
+$('exportBackupBtn')?.addEventListener('click', async () => {
+  try {
+    const includeKey = $('backupIncludeApiKeyToggle')?.checked ?? false;
+    const { filename, content } = await exportBackupDownload(includeKey);
+    downloadTextFile(filename, content);
+    showBackupResult('✓ Backup downloaded.', 'success');
+  } catch (err) {
+    showBackupResult('⚠ ' + err.message, 'error');
+  }
+});
+
+$('importBackupBtn')?.addEventListener('click', () => $('importBackupInput')?.click());
+
+$('importBackupInput')?.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const merge = $('mergeAppsOnImportToggle')?.checked ?? true;
+    await importBackupFromText(text, { mergeApplications: merge });
+    await reloadUIFromStorage();
+    scheduleBackupSync();
+    showBackupResult(`✓ Imported from ${file.name}`, 'success');
+    setStatus('success');
+    setTimeout(() => setStatus('idle'), 2000);
+  } catch (err) {
+    showBackupResult('⚠ ' + err.message, 'error');
+  }
+});
+
+$('backupIncludeApiKeyToggle')?.addEventListener('change', e => {
+  chrome.storage.local.set({ backupIncludeApiKey: e.target.checked });
+});
+
+$('setupContinueBtn')?.addEventListener('click', async () => {
+  const mode = document.querySelector('input[name="setupMode"]:checked')?.value || 'browser';
+  await completeSetup(mode);
+});
+
+$('setupSkipBtn')?.addEventListener('click', async () => {
+  await storageSet({ setupComplete: true, backupMode: 'browser' });
+  $('setupModal')?.classList.add('hidden');
+});
+
 // ─── Toggle persistence ───────────────────────────────────────────────────────
-$('autoFillToggle').addEventListener('change', e => chrome.storage.local.set({ autoFill: e.target.checked }));
-$('fuzzyMatchToggle').addEventListener('change', e => chrome.storage.local.set({ fuzzyMatch: e.target.checked }));
-$('notifyToggle').addEventListener('change', e => chrome.storage.local.set({ notify: e.target.checked }));
+$('autoFillToggle').addEventListener('change', e => {
+  chrome.storage.local.set({ autoFill: e.target.checked });
+  scheduleBackupSync();
+});
+$('fuzzyMatchToggle').addEventListener('change', e => {
+  chrome.storage.local.set({ fuzzyMatch: e.target.checked });
+  scheduleBackupSync();
+});
+$('notifyToggle').addEventListener('change', e => {
+  chrome.storage.local.set({ notify: e.target.checked });
+  scheduleBackupSync();
+});
 
 // ─── API Key ─────────────────────────────────────────────────────────────────
 $('showKeyBtn').addEventListener('click', () => {
@@ -151,12 +747,29 @@ $('saveKeyBtn').addEventListener('click', () => {
   }, () => {
     $('keyStatus').textContent = '✓ Saved';
     $('keyStatus').style.color = '#4ade80';
+    scheduleBackupSync();
     setTimeout(() => $('keyStatus').textContent = '', 2000);
   });
 });
 
-// ─── Profile File Load ────────────────────────────────────────────────────────
+// ─── Profile File Load / Export ───────────────────────────────────────────────
 $('loadProfileBtn').addEventListener('click', () => $('profileFileInput').click());
+
+$('exportProfileBtn').addEventListener('click', () => {
+  const data = collectProfileFromUI();
+  if (Object.keys(data).length === 0) {
+    alert('No profile data to export. Load or add fields first.');
+    return;
+  }
+
+  chrome.storage.local.get(['profileName'], res => {
+    const baseName = (res.profileName || 'my-profile').replace(/\.(json|csv|txt)$/i, '');
+    downloadJsonFile(`${baseName}.json`, data);
+    showResult('fillResult', '✓ Profile exported as JSON.', 'success');
+    setStatus('success');
+    setTimeout(() => setStatus('idle'), 2000);
+  });
+});
 
 $('profileFileInput').addEventListener('change', async e => {
   const file = e.target.files[0];
@@ -165,16 +778,18 @@ $('profileFileInput').addEventListener('change', async e => {
   const text = await file.text();
   let data = {};
 
-  if (file.name.endsWith('.json')) {
-    try { data = JSON.parse(text); } catch { alert('Invalid JSON file.'); return; }
-  } else if (file.name.endsWith('.csv')) {
-    data = parseCSV(text);
+  try {
+    data = parseProfileFile(text, file.name.toLowerCase());
+  } catch (err) {
+    alert(err.message || 'Could not read profile file.');
+    return;
   }
 
   chrome.storage.local.set({ profileData: data, profileName: file.name }, () => {
     $('profileFileName').textContent = file.name;
     $('profileFileName').classList.remove('muted');
     renderProfilePreview(data);
+    scheduleBackupSync();
   });
 });
 
@@ -324,6 +939,7 @@ $('saveProfileBtn').addEventListener('click', () => {
       
       showResult('fillResult', '✓ Profile changes saved locally!', 'success');
       setStatus('success');
+      scheduleBackupSync();
       setTimeout(() => setStatus('idle'), 3000);
     });
   });
@@ -339,6 +955,7 @@ $('clearProfileBtn').addEventListener('click', () => {
     renderProfilePreview({});
     showResult('fillResult', '✓ Profile cleared successfully.', 'success');
     setStatus('success');
+    scheduleBackupSync();
     setTimeout(() => setStatus('idle'), 3000);
   });
 });
@@ -352,37 +969,41 @@ $('fillNowBtn').addEventListener('click', async () => {
   setStatus('active');
   $('fillNowBtn').disabled = true;
 
-  chrome.storage.local.get(['profileData', 'fuzzyMatch'], res => {
-    if (!res.profileData || Object.keys(res.profileData).length === 0) {
-      showResult('fillResult', '⚠ No profile data loaded. Load a CSV or JSON file first.', 'error');
+  try {
+    const tab = await getActiveTab();
+    if (!tab?.id || !isInjectableUrl(tab.url)) {
+      showResult('fillResult', '⚠ Open a job application page first.', 'error');
       setStatus('error');
-      $('fillNowBtn').disabled = false;
       return;
     }
 
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      chrome.tabs.sendMessage(tabs[0].id, {
-        type: 'FILL_FORM',
-        profileData: res.profileData,
-        fuzzyMatch: res.fuzzyMatch ?? true
-      }, response => {
-        $('fillNowBtn').disabled = false;
-        if (chrome.runtime.lastError) {
-          showResult('fillResult', '⚠ Could not reach page. Try refreshing.', 'error');
-          setStatus('error');
-          return;
-        }
-        if (response?.filled > 0) {
-          showResult('fillResult', `✓ Filled ${response.filled} field(s) successfully!`, 'success');
-          setStatus('success');
-        } else {
-          showResult('fillResult', 'ℹ No matching fields found on this page.', 'error');
-          setStatus('idle');
-        }
-        setTimeout(() => setStatus('idle'), 3000);
-      });
+    const res = await chrome.storage.local.get(['profileData', 'fuzzyMatch']);
+    if (!res.profileData || Object.keys(res.profileData).length === 0) {
+      showResult('fillResult', '⚠ No profile data loaded. Load a JSON profile file first.', 'error');
+      setStatus('error');
+      return;
+    }
+
+    const response = await sendToTab(tab.id, {
+      type: 'FILL_FORM',
+      profileData: res.profileData,
+      fuzzyMatch: res.fuzzyMatch ?? true
     });
-  });
+
+    if (response?.filled > 0) {
+      showResult('fillResult', `✓ Filled ${response.filled} field(s) successfully!`, 'success');
+      setStatus('success');
+    } else {
+      showResult('fillResult', 'ℹ No matching fields found on this page.', 'error');
+      setStatus('idle');
+    }
+  } catch {
+    showResult('fillResult', '⚠ Could not reach page. Try refreshing.', 'error');
+    setStatus('error');
+  } finally {
+    $('fillNowBtn').disabled = false;
+    setTimeout(() => setStatus('idle'), 3000);
+  }
 });
 
 // ─── Resume Upload ────────────────────────────────────────────────────────────
@@ -397,27 +1018,38 @@ $('resumeFileInput').addEventListener('change', async e => {
     // For PDF we store the base64 and extract text via AI
     const ab = await file.arrayBuffer();
     const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-    chrome.storage.local.set({ resumeB64: b64, resumeName: file.name, resumeText: null });
+    chrome.storage.local.set({ resumeB64: b64, resumeName: file.name, resumeText: null }, () => {
+      scheduleBackupSync();
+    });
     $('resumeFileName').textContent = file.name + ' (PDF — Anthropic & Gemini)';
   } else {
     text = await file.text();
-    chrome.storage.local.set({ resumeText: text, resumeName: file.name, resumeB64: null });
+    chrome.storage.local.set({ resumeText: text, resumeName: file.name, resumeB64: null }, () => {
+      scheduleBackupSync();
+    });
     $('resumeFileName').textContent = file.name;
   }
   $('resumeFileName').classList.remove('muted');
 });
 
 // ─── Detect Job Description from Page ────────────────────────────────────────
-$('detectJobBtn').addEventListener('click', () => {
-  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-    chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_JOB_DESC' }, response => {
-      if (chrome.runtime.lastError || !response?.text) {
-        $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
-        return;
-      }
-      $('jobDescInput').value = response.text.slice(0, 3000);
-    });
-  });
+$('detectJobBtn').addEventListener('click', async () => {
+  try {
+    const tab = await getActiveTab();
+    if (!tab?.id || !isInjectableUrl(tab.url)) {
+      $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
+      return;
+    }
+
+    const response = await sendToTab(tab.id, { type: 'GET_JOB_DESC' });
+    if (!response?.text) {
+      $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
+      return;
+    }
+    $('jobDescInput').value = response.text.slice(0, 3000);
+  } catch {
+    $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
+  }
 });
 
 // ─── Tailor Resume ────────────────────────────────────────────────────────────
@@ -480,9 +1112,5 @@ $('copyResumeBtn').addEventListener('click', () => {
 });
 
 $('downloadResumeBtn').addEventListener('click', () => {
-  const blob = new Blob([$('tailoredOutput').value], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'tailored-resume.txt'; a.click();
-  URL.revokeObjectURL(url);
+  downloadTextFile('tailored-resume.txt', $('tailoredOutput').value);
 });

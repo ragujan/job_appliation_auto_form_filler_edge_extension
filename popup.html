@@ -23,6 +23,7 @@
     <!-- TABS -->
     <div class="tabs">
       <button class="tab active" data-tab="autofill">Auto-Fill</button>
+      <button class="tab" data-tab="applications">Applications</button>
       <button class="tab" data-tab="resume">Resume</button>
       <button class="tab" data-tab="settings">Settings</button>
     </div>
@@ -43,9 +44,10 @@
         <p class="section-label">Profile Data File</p>
         <div class="file-row">
           <span id="profileFileName" class="file-name muted">No file loaded</span>
-          <button id="loadProfileBtn" class="btn-secondary">Load CSV/JSON</button>
+          <button id="exportProfileBtn" class="btn-secondary" title="Download profile as JSON file">Export .json</button>
+          <button id="loadProfileBtn" class="btn-secondary">Load JSON</button>
         </div>
-        <input type="file" id="profileFileInput" accept=".csv,.json" style="display:none" />
+        <input type="file" id="profileFileInput" accept=".json,.csv,.txt" style="display:none" />
       </div>
 
       <div id="profilePreview" class="profile-preview hidden">
@@ -78,6 +80,70 @@
         ⚡ Fill Form Now
       </button>
       <div id="fillResult" class="result-msg hidden"></div>
+    </div>
+
+    <!-- APPLICATIONS TAB -->
+    <div class="tab-content" id="tab-applications">
+      <div id="trackCurrentSection" class="track-current-section">
+        <div class="section-header-row">
+          <p class="section-label">Current Page</p>
+          <div class="header-inline-actions">
+            <button id="refreshTrackBtn" class="btn-secondary" title="Reload data from the active browser tab">Refresh</button>
+            <button id="clearTrackBtn" class="btn-secondary" title="Clear form and add a different job manually">Clear</button>
+          </div>
+        </div>
+        <div id="trackExistingCard" class="track-existing-card hidden">
+          <p class="track-existing-label">Already tracked</p>
+          <div class="track-form-row">
+            <input type="text" id="trackEditTitle" placeholder="Job title" />
+          </div>
+          <div class="track-form-row">
+            <input type="text" id="trackEditCompany" placeholder="Company" />
+          </div>
+          <div class="track-form-row">
+            <label class="section-label-mini" for="trackEditStatus">Status</label>
+            <select id="trackEditStatus"></select>
+          </div>
+          <div class="track-form-row">
+            <textarea id="trackEditNotes" placeholder="Notes (optional)" rows="2"></textarea>
+          </div>
+          <button id="updateTrackedBtn" class="btn-primary full-width">Update Application</button>
+        </div>
+        <div id="trackNewCard" class="track-new-card">
+          <div class="track-form-row">
+            <input type="text" id="trackUrl" placeholder="Job page URL" />
+          </div>
+          <div class="track-form-row">
+            <input type="text" id="trackTitle" placeholder="Job title" />
+          </div>
+          <div class="track-form-row">
+            <input type="text" id="trackCompany" placeholder="Company" />
+          </div>
+          <div class="track-form-row">
+            <label class="section-label-mini" for="trackStatus">Status</label>
+            <select id="trackStatus"></select>
+          </div>
+          <div class="track-form-row">
+            <textarea id="trackNotes" placeholder="Notes (optional)" rows="2"></textarea>
+          </div>
+          <button id="trackAppBtn" class="btn-primary full-width">📌 Track This Application</button>
+        </div>
+        <div id="trackResult" class="result-msg hidden"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-header-row">
+          <p class="section-label">All Applications</p>
+          <div class="header-inline-actions">
+            <button id="exportAppsBtn" class="btn-secondary" title="Download applications as text file">Export .txt</button>
+            <span id="appCount" class="app-count muted">0</span>
+          </div>
+        </div>
+        <input type="text" id="appSearchInput" placeholder="🔍 Search applications..." class="search-input" />
+        <div id="applicationsList" class="applications-list">
+          <p class="hint muted apps-empty">No applications tracked yet.</p>
+        </div>
+      </div>
     </div>
 
     <!-- RESUME TAB -->
@@ -151,6 +217,43 @@
         <input type="text" id="customModelInput" placeholder="llama3.2" />
       </div>
 
+      <div class="section backup-section">
+        <p class="section-label">Data &amp; Backup</p>
+        <p class="hint muted">Your data stays on this device. Optionally mirror it to a folder you choose.</p>
+
+        <div id="backupFolderStatus" class="backup-status muted">Browser storage only</div>
+
+        <div class="btn-row backup-actions">
+          <button id="chooseFolderBtn" class="btn-secondary">📁 Choose Folder</button>
+          <button id="syncNowBtn" class="btn-secondary hidden" title="Write latest data to backup folder">Sync Now</button>
+        </div>
+        <button id="reconnectFolderBtn" class="btn-secondary full-width hidden">Reconnect Folder</button>
+        <button id="disconnectFolderBtn" class="btn-text-danger hidden">Disconnect folder</button>
+
+        <div class="btn-row backup-actions mt-4">
+          <button id="exportBackupBtn" class="btn-secondary">⬇ Export Backup</button>
+          <button id="importBackupBtn" class="btn-secondary">⬆ Import Backup</button>
+        </div>
+        <input type="file" id="importBackupInput" accept=".json,application/json" style="display:none" />
+
+        <label class="toggle-row mt-4">
+          <span>Include API key in backups</span>
+          <label class="switch">
+            <input type="checkbox" id="backupIncludeApiKeyToggle" />
+            <span class="slider"></span>
+          </label>
+        </label>
+        <label class="toggle-row mt-4">
+          <span>Merge applications on import (match by URL or company + title)</span>
+          <label class="switch">
+            <input type="checkbox" id="mergeAppsOnImportToggle" checked />
+            <span class="slider"></span>
+          </label>
+        </label>
+
+        <div id="backupResult" class="result-msg hidden"></div>
+      </div>
+
       <div class="section">
         <label class="toggle-row">
           <span>Smart field matching (fuzzy)</span>
@@ -172,6 +275,39 @@
     </div>
   </div>
 
+  <!-- First-run setup -->
+  <div id="setupModal" class="setup-modal hidden">
+    <div class="setup-modal-content">
+      <h2>Welcome to JobFill AI</h2>
+      <p class="hint muted">Where should your data be stored? Everything stays on your device — we never upload it.</p>
+
+      <div class="setup-options">
+        <label class="setup-option">
+          <input type="radio" name="setupMode" value="browser" checked />
+          <span>
+            <strong>Browser only</strong>
+            <small>Fast and simple. Export manually anytime.</small>
+          </span>
+        </label>
+        <label class="setup-option">
+          <input type="radio" name="setupMode" value="folder" />
+          <span>
+            <strong>Browser + folder on my computer</strong>
+            <small>Recommended — auto-sync JSON files to a folder you pick.</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="setup-actions">
+        <button id="setupContinueBtn" class="btn-primary full-width">Continue</button>
+        <button id="setupSkipBtn" class="btn-secondary full-width">Decide later</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="src/applications.js"></script>
+  <script src="src/inject.js"></script>
+  <script src="src/backup.js"></script>
   <script src="src/ai-providers.js"></script>
   <script src="src/popup.js"></script>
 </body>

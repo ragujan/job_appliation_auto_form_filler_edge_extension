@@ -5,21 +5,44 @@
   "description": "Auto-fill job applications and tailor your resume using AI.",
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "activeTab",
     "scripting",
     "tabs",
     "sidePanel"
-  ],
-  "host_permissions": [
-    "<all_urls>"
   ],
   "background": {
     "service_worker": "src/background.js"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["src/content.js"],
+      "matches": [
+        "*://*.linkedin.com/*",
+        "*://*.greenhouse.io/*",
+        "*://boards.greenhouse.io/*",
+        "*://*.lever.co/*",
+        "*://jobs.lever.co/*",
+        "*://*.myworkdayjobs.com/*",
+        "*://*.workday.com/*",
+        "*://*.ashbyhq.com/*",
+        "*://*.smartrecruiters.com/*",
+        "*://*.indeed.com/*",
+        "*://*.glassdoor.com/*",
+        "*://*.bamboohr.com/*",
+        "*://*.jobvite.com/*",
+        "*://*.icims.com/*",
+        "*://*.taleo.net/*",
+        "*://*.workable.com/*",
+        "*://*.breezy.hr/*",
+        "*://*.applytojob.com/*",
+        "*://*.jazz.co/*",
+        "*://*.recruitee.com/*",
+        "*://*.teamtailor.com/*",
+        "*://*.rippling.com/*",
+        "*://*.ultipro.com/*",
+        "*://*.paylocity.com/*"
+      ],
+      "js": ["src/applications.js", "src/content.js"],
       "run_at": "document_idle"
     }
   ],
