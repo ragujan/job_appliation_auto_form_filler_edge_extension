@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "JobFill AI",
+  "name": "FillyJobber",
   "version": "1.0.0",
   "description": "Auto-fill job applications and tailor your resume using AI.",
   "permissions": [
@@ -11,11 +11,15 @@
     "tabs",
     "sidePanel"
   ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "background": {
     "service_worker": "src/background.js"
   },
   "action": {
-    "default_title": "JobFill AI",
+    "default_title": "FillyJobber",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

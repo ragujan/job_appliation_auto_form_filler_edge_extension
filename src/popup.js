@@ -200,6 +200,8 @@ document.querySelectorAll('.tab').forEach(tab => {
     $(`tab-${tab.dataset.tab}`).classList.add('active');
     if (tab.dataset.tab === 'applications') {
       refreshApplicationsTab();
+    } else {
+      updatePermissionBanner();
     }
   });
 });
@@ -232,6 +234,7 @@ chrome.storage.local.get(['autoFill', 'fuzzyMatch', 'notify', 'apiKey', 'aiProvi
   renderProfilePreview(res.profileData || {});
   populateStatusSelects();
   renderApplicationsList();
+  updatePermissionBanner();
   runStartupBackupTasks().then(async ({ loaded }) => {
     if (loaded) await reloadUIFromStorage();
     else await refreshBackupUI();
@@ -286,8 +289,33 @@ async function fetchPageMetadataFromPage(tab) {
   if (!tab?.id || !isInjectableUrl(tab.url)) {
     throw new Error('Open a job page in the browser.');
   }
-  const meta = await sendToTab(tab.id, { type: 'GET_PAGE_METADATA' });
+  const meta = await sendToTab(tab.id, { type: 'GET_PAGE_METADATA' }, tab.url);
   return meta || metadataFromTab(tab);
+}
+
+async function updatePermissionBanner() {
+  const banner = $('sitePermissionBanner');
+  if (!banner) return;
+
+  const activePanelTab = document.querySelector('.tab.active')?.dataset?.tab;
+  if (activePanelTab !== 'autofill' && activePanelTab !== 'applications') {
+    banner.classList.add('hidden');
+    return;
+  }
+
+  const tab = await getActiveTab();
+  if (!tab?.url || !isInjectableUrl(tab.url)) {
+    banner.classList.add('hidden');
+    return;
+  }
+
+  if (await hasHostPermission(tab.url)) {
+    banner.classList.add('hidden');
+    return;
+  }
+
+  banner.textContent = `${siteLabel(tab.url)} — click Fill Form Now or Refresh to grant access once for this site.`;
+  banner.classList.remove('hidden');
 }
 
 function setTrackFormMode(existing) {
@@ -353,6 +381,7 @@ async function refreshApplicationsTab() {
   }
 
   await renderApplicationsList();
+  await updatePermissionBanner();
 }
 
 function renderApplicationsList() {
@@ -458,33 +487,42 @@ async function removeTrackedApplication(id) {
   return updated;
 }
 
-$('refreshTrackBtn').addEventListener('click', async () => {
+$('refreshTrackBtn').addEventListener('click', () => {
   manualInsertMode = false;
   $('trackResult').classList.add('hidden');
 
-  const tab = await getActiveTab();
-  if (!tab?.id || !isInjectableUrl(tab.url)) {
-    showTrackResult('Open a job page in the browser.', 'error');
-    return;
-  }
-
-  try {
-    const apps = await loadApplications();
-    const existing = findApplicationByUrl(apps, tab.url);
-
-    if (existing) {
-      setTrackFormMode(existing);
-    } else {
-      setTrackFormMode(null);
-      const meta = await fetchPageMetadataFromPage(tab);
-      populateTrackFormFromMetadata(meta, tab.url);
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    const tab = tabs[0];
+    if (!tab?.id || !isInjectableUrl(tab.url)) {
+      showTrackResult('Open a job page in the browser.', 'error');
+      return;
     }
 
-    showTrackResult('✓ Loaded details from page.', 'success');
-    await renderApplicationsList();
-  } catch (err) {
-    showTrackResult('⚠ ' + (err.message || 'Could not read page. Try refreshing.'), 'error');
-  }
+    try {
+      const granted = await requestHostPermission(tab.url);
+      if (!granted) {
+        showTrackResult('⚠ ' + PERMISSION_DENIED_MSG, 'error');
+        return;
+      }
+      await updatePermissionBanner();
+
+      const apps = await loadApplications();
+      const existing = findApplicationByUrl(apps, tab.url);
+
+      if (existing) {
+        setTrackFormMode(existing);
+      } else {
+        setTrackFormMode(null);
+        const meta = await fetchPageMetadataFromPage(tab);
+        populateTrackFormFromMetadata(meta, tab.url);
+      }
+
+      showTrackResult('✓ Loaded details from page.', 'success');
+      await renderApplicationsList();
+    } catch (err) {
+      showTrackResult('⚠ ' + (err.message || 'Could not read page. Try refreshing.'), 'error');
+    }
+  });
 });
 
 $('clearTrackBtn').addEventListener('click', () => {
@@ -493,47 +531,53 @@ $('clearTrackBtn').addEventListener('click', () => {
   $('trackResult').classList.add('hidden');
 });
 
-$('trackAppBtn').addEventListener('click', async () => {
-  const tab = await getActiveTab();
-  const url = ($('trackUrl').value.trim() || tab?.url || '').trim();
+$('trackAppBtn').addEventListener('click', () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    const tab = tabs[0];
+    const url = ($('trackUrl').value.trim() || tab?.url || '').trim();
 
-  if (!url) {
-    showTrackResult('Enter a job page URL or open a job page in the browser.', 'error');
-    return;
-  }
-
-  const metadata = {
-    url,
-    title: $('trackTitle').value.trim(),
-    company: $('trackCompany').value.trim(),
-    status: $('trackStatus').value,
-    notes: $('trackNotes').value.trim()
-  };
-
-  let pageMeta = null;
-  if (tab?.id && isInjectableUrl(tab.url)) {
-    try {
-      pageMeta = await fetchPageMetadataFromPage(tab);
-    } catch {
-      pageMeta = null;
+    if (!url) {
+      showTrackResult('Enter a job page URL or open a job page in the browser.', 'error');
+      return;
     }
-  }
-  if (pageMeta?.snippet && !metadata.snippet) metadata.snippet = pageMeta.snippet;
 
-  const { application, duplicate } = await addTrackedApplication(metadata);
+    const metadata = {
+      url,
+      title: $('trackTitle').value.trim(),
+      company: $('trackCompany').value.trim(),
+      status: $('trackStatus').value,
+      notes: $('trackNotes').value.trim()
+    };
 
-  if (duplicate) {
-    showTrackResult('This URL is already tracked.', 'error');
-    if (!manualInsertMode) setTrackFormMode(application);
-    return;
-  }
+    let pageMeta = null;
+    if (tab?.id && isInjectableUrl(tab.url)) {
+      try {
+        const granted = await requestHostPermission(tab.url);
+        if (granted) {
+          await updatePermissionBanner();
+          pageMeta = await fetchPageMetadataFromPage(tab);
+        }
+      } catch {
+        pageMeta = null;
+      }
+    }
+    if (pageMeta?.snippet && !metadata.snippet) metadata.snippet = pageMeta.snippet;
 
-  manualInsertMode = false;
-  showTrackResult(`✓ Saved: ${application.company || 'Application'} — ${application.title || 'Untitled'}`, 'success');
-  resetTrackForm();
-  renderApplicationsList();
-  setStatus('success');
-  setTimeout(() => setStatus('idle'), 2000);
+    const { application, duplicate } = await addTrackedApplication(metadata);
+
+    if (duplicate) {
+      showTrackResult('This URL is already tracked.', 'error');
+      if (!manualInsertMode) setTrackFormMode(application);
+      return;
+    }
+
+    manualInsertMode = false;
+    showTrackResult(`✓ Saved: ${application.company || 'Application'} — ${application.title || 'Untitled'}`, 'success');
+    resetTrackForm();
+    renderApplicationsList();
+    setStatus('success');
+    setTimeout(() => setStatus('idle'), 2000);
+  });
 });
 
 $('updateTrackedBtn').addEventListener('click', async () => {
@@ -996,45 +1040,55 @@ function escHtml(s) {
 }
 
 // ─── Fill Now ─────────────────────────────────────────────────────────────────
-$('fillNowBtn').addEventListener('click', async () => {
+$('fillNowBtn').addEventListener('click', () => {
   setStatus('active');
   $('fillNowBtn').disabled = true;
 
-  try {
-    const tab = await getActiveTab();
-    if (!tab?.id || !isInjectableUrl(tab.url)) {
-      showResult('fillResult', '⚠ Open a job application page first.', 'error');
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    try {
+      const tab = tabs[0];
+      if (!tab?.id || !isInjectableUrl(tab.url)) {
+        showResult('fillResult', '⚠ Open a job application page first.', 'error');
+        setStatus('error');
+        return;
+      }
+
+      const granted = await requestHostPermission(tab.url);
+      if (!granted) {
+        showResult('fillResult', '⚠ ' + PERMISSION_DENIED_MSG, 'error');
+        setStatus('error');
+        return;
+      }
+      await updatePermissionBanner();
+
+      const res = await chrome.storage.local.get(['profileData', 'fuzzyMatch']);
+      if (!res.profileData || Object.keys(res.profileData).length === 0) {
+        showResult('fillResult', '⚠ No profile data loaded. Load a JSON profile file first.', 'error');
+        setStatus('error');
+        return;
+      }
+
+      const response = await sendToTab(tab.id, {
+        type: 'FILL_FORM',
+        profileData: res.profileData,
+        fuzzyMatch: res.fuzzyMatch ?? true
+      }, tab.url);
+
+      if (response?.filled > 0) {
+        showResult('fillResult', `✓ Filled ${response.filled} field(s) successfully!`, 'success');
+        setStatus('success');
+      } else {
+        showResult('fillResult', 'ℹ No matching fields found on this page.', 'error');
+        setStatus('idle');
+      }
+    } catch (err) {
+      showResult('fillResult', '⚠ ' + (err.message || 'Could not reach page. Try refreshing.'), 'error');
       setStatus('error');
-      return;
+    } finally {
+      $('fillNowBtn').disabled = false;
+      setTimeout(() => setStatus('idle'), 3000);
     }
-
-    const res = await chrome.storage.local.get(['profileData', 'fuzzyMatch']);
-    if (!res.profileData || Object.keys(res.profileData).length === 0) {
-      showResult('fillResult', '⚠ No profile data loaded. Load a JSON profile file first.', 'error');
-      setStatus('error');
-      return;
-    }
-
-    const response = await sendToTab(tab.id, {
-      type: 'FILL_FORM',
-      profileData: res.profileData,
-      fuzzyMatch: res.fuzzyMatch ?? true
-    });
-
-    if (response?.filled > 0) {
-      showResult('fillResult', `✓ Filled ${response.filled} field(s) successfully!`, 'success');
-      setStatus('success');
-    } else {
-      showResult('fillResult', 'ℹ No matching fields found on this page.', 'error');
-      setStatus('idle');
-    }
-  } catch (err) {
-    showResult('fillResult', '⚠ ' + (err.message || 'Could not reach page. Try refreshing.'), 'error');
-    setStatus('error');
-  } finally {
-    $('fillNowBtn').disabled = false;
-    setTimeout(() => setStatus('idle'), 3000);
-  }
+  });
 });
 
 // ─── Resume Upload ────────────────────────────────────────────────────────────
@@ -1064,23 +1118,32 @@ $('resumeFileInput').addEventListener('change', async e => {
 });
 
 // ─── Detect Job Description from Page ────────────────────────────────────────
-$('detectJobBtn').addEventListener('click', async () => {
-  try {
-    const tab = await getActiveTab();
-    if (!tab?.id || !isInjectableUrl(tab.url)) {
-      $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
-      return;
-    }
+$('detectJobBtn').addEventListener('click', () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    try {
+      const tab = tabs[0];
+      if (!tab?.id || !isInjectableUrl(tab.url)) {
+        $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
+        return;
+      }
 
-    const response = await sendToTab(tab.id, { type: 'GET_JOB_DESC' });
-    if (!response?.text) {
+      const granted = await requestHostPermission(tab.url);
+      if (!granted) {
+        $('jobDescInput').placeholder = 'Allow site access to auto-detect. Paste manually.';
+        return;
+      }
+      await updatePermissionBanner();
+
+      const response = await sendToTab(tab.id, { type: 'GET_JOB_DESC' }, tab.url);
+      if (!response?.text) {
+        $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
+        return;
+      }
+      $('jobDescInput').value = response.text.slice(0, 3000);
+    } catch {
       $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
-      return;
     }
-    $('jobDescInput').value = response.text.slice(0, 3000);
-  } catch {
-    $('jobDescInput').placeholder = 'Could not auto-detect. Paste manually.';
-  }
+  });
 });
 
 // ─── Tailor Resume ────────────────────────────────────────────────────────────
@@ -1144,4 +1207,17 @@ $('copyResumeBtn').addEventListener('click', () => {
 
 $('downloadResumeBtn').addEventListener('click', () => {
   downloadTextFile('tailored-resume.txt', $('tailoredOutput').value);
+});
+
+chrome.tabs.onActivated.addListener(() => {
+  updatePermissionBanner();
+  if (document.querySelector('.tab.active')?.dataset?.tab === 'applications') {
+    refreshApplicationsTab();
+  }
+});
+
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+  if (changeInfo.url || changeInfo.status === 'complete') {
+    updatePermissionBanner();
+  }
 });

@@ -1,4 +1,4 @@
-# ⚡ JobFill AI — Edge Extension
+# ⚡ FillyJobber — Edge Extension
 
 Auto-fill job application forms + AI-powered resume tailoring.
 
@@ -40,7 +40,7 @@ Choose your AI provider, add your API key, pick a model, and toggle smart matchi
 3. Click **"Load unpacked"**
 4. Select the `job-autofill-extension` folder
 5. The ⚡ icon will appear in your toolbar — pin it!
-6. Click the icon to open JobFill in the **side panel** — it stays open while you copy text from job pages
+6. Click the icon to open FillyJobber in the **side panel** — it stays open while you copy text from job pages
 
 ---
 

@@ -1,4 +1,4 @@
-// ─── JobFill AI — Local backup, export/import, folder sync ───────────────────
+// ─── FillyJobber — Local backup, export/import, folder sync ──────────────────
 
 const BACKUP_VERSION = 1;
 const BACKUP_DB_NAME = 'jobfill-backup';
@@ -147,7 +147,7 @@ async function collectBackupData(includeApiKey = false) {
   return {
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    app: 'JobFill AI',
+    app: 'FillyJobber',
     profile: {
       data: data.profileData || {},
       name: data.profileName || ''
@@ -176,7 +176,7 @@ async function applyBackupPayload(payload, { mergeApplications: merge = false } 
     throw new Error('Invalid backup file.');
   }
   if (payload.version && payload.version > BACKUP_VERSION) {
-    throw new Error('This backup was created with a newer version of JobFill AI.');
+    throw new Error('This backup was created with a newer version of FillyJobber.');
   }
 
   const current = await storageGet(['applications', 'profileData']);
@@ -362,7 +362,7 @@ async function syncToBackupFolder({ force = false } = {}) {
     await writeFile(handle, BACKUP_FILES.meta, JSON.stringify({
       version: BACKUP_VERSION,
       exportedAt,
-      app: 'JobFill AI',
+      app: 'FillyJobber',
       files: Object.values(BACKUP_FILES)
     }, null, 2));
 

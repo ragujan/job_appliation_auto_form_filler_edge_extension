@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JobFill AI — Privacy Policy</title>
+  <title>FillyJobber — Privacy Policy</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -75,14 +75,14 @@
 </head>
 <body>
   <main>
-    <h1>JobFill AI — Privacy Policy</h1>
+    <h1>FillyJobber — Privacy Policy</h1>
     <p class="meta">
       <strong>Effective date:</strong> July 2, 2026<br />
       <strong>Last updated:</strong> July 2, 2026
     </p>
 
     <p>
-      JobFill AI (“we”, “our”, or “the extension”) is a browser extension that helps you
+      FillyJobber (“we”, “our”, or “the extension”) is a browser extension that helps you
       auto-fill job application forms, track applications, and tailor your resume using AI.
       This policy explains what information the extension handles and how it is used.
     </p>
@@ -94,7 +94,7 @@
     <h2>1. Information we handle</h2>
 
     <h3>Information you provide</h3>
-    <p>When you use JobFill AI, you may store:</p>
+    <p>When you use FillyJobber, you may store:</p>
     <ul>
       <li><strong>Profile data</strong> — name, email, phone, address, work history, links, cover letter text, and other fields you load or enter</li>
       <li><strong>Resume content</strong> — text or PDF files you upload</li>
@@ -191,7 +191,7 @@
     <p>We do <strong>not</strong> receive, store, or process your AI requests on our own servers.</p>
 
     <h2>5. What we do not collect</h2>
-    <p>JobFill AI does <strong>not</strong>:</p>
+    <p>FillyJobber does <strong>not</strong>:</p>
     <ul>
       <li>Collect analytics or usage telemetry</li>
       <li>Use cookies or tracking pixels on a website we operate (this policy page is static)</li>
@@ -203,14 +203,20 @@
     <p>The extension requests browser permissions only to function:</p>
     <ul>
       <li><strong>Storage</strong> — save your profile, settings, and applications locally</li>
-      <li><strong>Active tab &amp; scripting</strong> — interact with the page you are on when you click an action</li>
-      <li><strong>Tabs</strong> — identify the active tab you are working with</li>
+      <li><strong>Scripting &amp; tabs</strong> — interact with the page you are on when you click an action</li>
       <li><strong>Side panel</strong> — display the extension interface</li>
+      <li><strong>Optional site access</strong> — read or fill forms on a job site only after you allow that site in Chrome’s prompt</li>
     </ul>
     <p>
-      The extension does <strong>not</strong> request broad access to all websites
-      (<code>&lt;all_urls&gt;</code>). Page access occurs only when you initiate an action on
-      the current tab.
+      The extension does <strong>not</strong> request broad access to all websites at install time
+      (<code>&lt;all_urls&gt;</code> or install-time <code>host_permissions</code>). When you click
+      an action such as <strong>Fill Form Now</strong> or <strong>Refresh</strong>, Chrome may ask
+      you to allow access to that specific site (for example, <code>linkedin.com</code>). Each site
+      is granted separately and only when you approve it.
+    </p>
+    <p>
+      Allowed sites remain permitted until you revoke them in
+      <code>chrome://extensions</code> → FillyJobber → <strong>Site access</strong>.
     </p>
 
     <h2>7. Data retention and deletion</h2>
@@ -238,7 +244,7 @@
 
     <h2>9. Children’s privacy</h2>
     <p>
-      JobFill AI is not intended for users under 13 (or the minimum age required in your country).
+      FillyJobber is not intended for users under 13 (or the minimum age required in your country).
       We do not knowingly collect information from children.
     </p>
 
@@ -251,7 +257,7 @@
     <h2>11. Contact</h2>
     <p>If you have questions about this privacy policy, contact:</p>
     <p>
-      <strong>JobFill AI</strong><br />
+      <strong>FillyJobber</strong><br />
       <strong>Email:</strong> <a href="mailto:kannadhasanragujan@gmail.com">kannadhasanragujan@gmail.com</a>
     </p>
 
@@ -261,7 +267,7 @@
         <li>Your job search data stays <strong>on your device</strong> by default.</li>
         <li><strong>No data leaves your browser</strong> except when <strong>you</strong> send resume/job text to <strong>your chosen AI provider</strong>.</li>
         <li><strong>No analytics. No tracking. No ads.</strong></li>
-        <li>Page access happens <strong>only when you click an action</strong> on the tab you are using.</li>
+        <li>Page access is granted <strong>one site at a time</strong> when you click an action and approve Chrome’s prompt.</li>
       </ul>
     </div>
   </main>

@@ -1,4 +1,4 @@
-// ─── JobFill AI — Application tracking helpers ───────────────────────────────
+// ─── FillyJobber — Application tracking helpers ──────────────────────────────
 
 const APPLICATION_STATUSES = [
   { value: 'applied', label: 'Applied' },
@@ -151,7 +151,7 @@ function appendApplication(apps, metadata) {
 
 function formatApplicationsAsText(apps) {
   const lines = [
-    'JobFill AI — Applications Export',
+    'FillyJobber — Applications Export',
     `Generated: ${new Date().toLocaleString()}`,
     `Total: ${(apps || []).length}`,
     ''

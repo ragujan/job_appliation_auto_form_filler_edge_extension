@@ -181,8 +181,8 @@ async function callOpenRouter(opts) {
     resumeText: opts.resumeText,
     jobDesc: opts.jobDesc,
     extraHeaders: {
-      'HTTP-Referer': 'https://jobfill-ai-extension',
-      'X-Title': 'JobFill AI'
+      'HTTP-Referer': 'https://fillyjobber-extension',
+      'X-Title': 'FillyJobber'
     }
   });
 }

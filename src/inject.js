@@ -16,7 +16,16 @@ function isInjectableUrl(url) {
   return !RESTRICTED_URL_PREFIXES.some(prefix => url.startsWith(prefix));
 }
 
-async function sendToTab(tabId, payload) {
+async function sendToTab(tabId, payload, tabUrl) {
+  if (!tabUrl || !isInjectableUrl(tabUrl)) {
+    throw new Error('Open a job page in the browser.');
+  }
+
+  const granted = await ensureHostPermission(tabUrl);
+  if (!granted) {
+    throw new Error(PERMISSION_DENIED_MSG);
+  }
+
   const result = await chrome.runtime.sendMessage({
     type: 'SEND_TO_TAB',
     tabId,

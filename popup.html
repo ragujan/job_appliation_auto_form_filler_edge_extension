@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>JobFill AI</title>
+  <title>FillyJobber</title>
   <link rel="stylesheet" href="src/popup.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
     <header>
       <div class="logo">
         <span class="logo-icon">⚡</span>
-        <span class="logo-text">JobFill <span class="ai">AI</span></span>
+        <span class="logo-text">Filly<span class="ai">Jobber</span></span>
       </div>
       <div class="header-actions">
         <button id="popOutBtn" class="btn-icon" title="Open in separate window">⧉</button>
@@ -19,6 +19,7 @@
       </div>
     </header>
     <p id="panelHint" class="panel-hint">Stays open while you work on the page</p>
+    <div id="sitePermissionBanner" class="site-permission-banner hidden" role="status"></div>
 
     <!-- TABS -->
     <div class="tabs">
@@ -272,14 +273,14 @@
         </label>
       </div>
 
-      <div class="version">JobFill AI v1.0.0</div>
+      <div class="version">FillyJobber v1.0.0</div>
     </div>
   </div>
 
   <!-- First-run setup -->
   <div id="setupModal" class="setup-modal hidden">
     <div class="setup-modal-content">
-      <h2>Welcome to JobFill AI</h2>
+      <h2>Welcome to FillyJobber</h2>
       <p class="hint muted">Where should your data be stored? Everything stays on your device — we never upload it.</p>
 
       <div class="setup-options">
@@ -307,6 +308,7 @@
   </div>
 
   <script src="src/applications.js"></script>
+  <script src="src/site-permissions.js"></script>
   <script src="src/inject.js"></script>
   <script src="src/backup.js"></script>
   <script src="src/ai-providers.js"></script>

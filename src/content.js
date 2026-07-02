@@ -1,4 +1,4 @@
-// ─── JobFill AI — Content Script ─────────────────────────────────────────────
+// ─── FillyJobber — Content Script ────────────────────────────────────────────
 // Injected on demand via activeTab + scripting when the user clicks an action.
 
 (function () {
@@ -466,7 +466,7 @@
             if (res.autoFill && res.profileData) {
               const filled = fillForms(res.profileData, res.fuzzyMatch ?? true);
               if (filled > 0 && res.notify) {
-                showToast(`⚡ JobFill: auto-filled ${filled} new field(s)`);
+                showToast(`⚡ FillyJobber: auto-filled ${filled} new field(s)`);
               }
             }
           });

@@ -1,4 +1,4 @@
-// ─── JobFill AI — Background Service Worker ───────────────────────────────────
+// ─── FillyJobber — Background Service Worker ──────────────────────────────────
 
 const POPUP_URL = chrome.runtime.getURL('popup.html?window=1');
 const POPUP_WIDTH = 420;
@@ -41,10 +41,18 @@ async function ensureContentScript(tabId) {
 
   if (await pingContentScript(tabId)) return;
 
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: CONTENT_SCRIPT_FILES
-  });
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: CONTENT_SCRIPT_FILES
+    });
+  } catch (err) {
+    const msg = err?.message || String(err);
+    if (/cannot access|host permission|permission/i.test(msg)) {
+      throw new Error('Allow access to this site to use FillyJobber on this page.');
+    }
+    throw err;
+  }
 
   for (let attempt = 0; attempt < 5; attempt++) {
     if (await pingContentScript(tabId)) return;
@@ -78,7 +86,7 @@ function openFloatingWindow() {
 configureSidePanel();
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('JobFill AI installed.');
+  console.log('FillyJobber installed.');
   configureSidePanel();
 
   chrome.storage.local.get(['autoFill', 'fuzzyMatch', 'notify', 'aiProvider', 'model'], res => {

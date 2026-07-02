@@ -60,6 +60,17 @@ header {
 
 .panel-hint.hidden { display: none; }
 
+.site-permission-banner {
+  font-size: 11px;
+  color: #c4b5fd;
+  background: #1a1730;
+  border-bottom: 1px solid #2d2850;
+  padding: 8px 16px;
+  line-height: 1.4;
+}
+
+.site-permission-banner.hidden { display: none; }
+
 .hidden { display: none !important; }
 .ai { color: #7c6af7; }
 
